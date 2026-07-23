@@ -7,3 +7,12 @@ C:\Program Files (x86)\Decal 3.0\CharacterTrackerPlugin\obj\x86\Release\Characte
 C:\Program Files (x86)\Decal 3.0\CharacterTrackerPlugin\obj\x86\Release\Characte.38493FB9.Up2Date
 C:\Program Files (x86)\Decal 3.0\CharacterTrackerPlugin\obj\x86\Release\CharacterTracker.dll
 C:\Program Files (x86)\Decal 3.0\CharacterTrackerPlugin\obj\x86\Release\CharacterTracker.pdb
+C:\Agentic AC\Decal Plugin - Game State Export Layer\bin\x86\Release\CharacterTracker.dll
+C:\Agentic AC\Decal Plugin - Game State Export Layer\bin\x86\Release\CharacterTracker.pdb
+C:\Agentic AC\Decal Plugin - Game State Export Layer\bin\x86\Release\Decal.Adapter.dll
+C:\Agentic AC\Decal Plugin - Game State Export Layer\bin\x86\Release\Decal.Adapter.xml
+C:\Agentic AC\Decal Plugin - Game State Export Layer\obj\x86\Release\CharacterTracker.csproj.AssemblyReference.cache
+C:\Agentic AC\Decal Plugin - Game State Export Layer\obj\x86\Release\CharacterTracker.csproj.CoreCompileInputs.cache
+C:\Agentic AC\Decal Plugin - Game State Export Layer\obj\x86\Release\Characte.38493FB9.Up2Date
+C:\Agentic AC\Decal Plugin - Game State Export Layer\obj\x86\Release\CharacterTracker.dll
+C:\Agentic AC\Decal Plugin - Game State Export Layer\obj\x86\Release\CharacterTracker.pdb

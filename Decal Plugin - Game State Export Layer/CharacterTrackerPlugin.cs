@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Timers;
 using Decal.Adapter;
+using Decal.Adapter.Wrappers;
 
 namespace CharacterTracker
 {
@@ -92,6 +93,10 @@ namespace CharacterTracker
                     "LOGIN COMPLETE FIRED\r\n"
                 );
 
+                CoreManager.Current.Actions.AddChatText(
+                    "[CharacterTrackerPlugin] Loaded",
+                    5
+                );
 
                 if (trackerTimer != null)
                 {
@@ -111,9 +116,10 @@ namespace CharacterTracker
                     "Tracker timer started\r\n"
                 );
 
-
                 // Write immediately instead of waiting 1 second
                 WriteCurrentPosition();
+
+
             }
             catch (Exception ex)
             {
@@ -178,6 +184,10 @@ namespace CharacterTracker
             }
 
 
+            VitalState vitals = GetVitals();
+
+            CharacterInfoState info = GetCharacterInfo();
+
             string json =
                 "{\r\n" +
                 "  \"CharacterId\": " + characterId + ",\r\n" +
@@ -185,6 +195,30 @@ namespace CharacterTracker
                 "  \"Server\": \"" + server + "\",\r\n" +
                 "  \"NorthSouth\": " + coords.NorthSouth + ",\r\n" +
                 "  \"EastWest\": " + coords.EastWest + ",\r\n" +
+                "  \"Vitals\": {\r\n" +
+                "      \"HealthCurrent\": " + vitals.HealthCurrent + ",\r\n" +
+                "      \"HealthMaximum\": " + vitals.HealthMaximum + ",\r\n" +
+                "      \"HealthBase\": " + vitals.HealthBase + ",\r\n" +
+                "      \"HealthBonus\": " + vitals.HealthBonus + ",\r\n" +
+                "      \"ManaCurrent\": " + vitals.ManaCurrent + ",\r\n" +
+                "      \"ManaMaximum\": " + vitals.ManaMaximum + ",\r\n" +
+                "      \"ManaBase\": " + vitals.ManaBase + ",\r\n" +
+                "      \"ManaBonus\": " + vitals.ManaBonus + ",\r\n" +
+                "      \"StaminaCurrent\": " + vitals.StaminaCurrent + ",\r\n" +
+                "      \"StaminaMaximum\": " + vitals.StaminaMaximum + ",\r\n" +
+                "      \"StaminaBase\": " + vitals.StaminaBase + ",\r\n" +
+                "      \"StaminaBonus\": " + vitals.StaminaBonus + "\r\n" +
+                "  },\r\n" +
+                "  \"CharacterInfo\": {\r\n" +
+                "      \"Level\": " + info.Level + ",\r\n" +
+                "      \"TotalXP\": " + info.TotalXP + ",\r\n" +
+                "      \"XPToNextLevel\": " + info.XPToNextLevel + ",\r\n" +
+                "      \"UnassignedXP\": " + info.UnassignedXP + ",\r\n" +
+                "      \"Vitae\": " + info.Vitae + ",\r\n" +
+                "      \"Deaths\": " + info.Deaths + ",\r\n" +
+                "      \"Burden\": " + info.Burden + ",\r\n" +
+                "      \"BurdenUnits\": " + info.BurdenUnits + "\r\n" +
+                "  },\r\n" +
                 "  \"Timestamp\": \"" + DateTime.Now.ToString("o") + "\"\r\n" +
                 "}";
 
@@ -194,5 +228,57 @@ namespace CharacterTracker
                 json
             );
         }
+
+
+        private VitalState GetVitals()
+        {
+            var character = CoreManager.Current.CharacterFilter;
+
+            var health = character.Vitals[CharFilterVitalType.Health];
+            var mana = character.Vitals[CharFilterVitalType.Mana];
+            var stamina = character.Vitals[CharFilterVitalType.Stamina];
+
+            return new VitalState
+            {
+                HealthCurrent = health.Current,
+                HealthMaximum = health.Buffed,
+                HealthBase = health.Base,
+                HealthBonus = health.Bonus,
+
+                ManaCurrent = mana.Current,
+                ManaMaximum = mana.Buffed,
+                ManaBase = mana.Base,
+                ManaBonus = mana.Bonus,
+
+                StaminaCurrent = stamina.Current,
+                StaminaMaximum = stamina.Buffed,
+                StaminaBase = stamina.Base,
+               StaminaBonus = stamina.Bonus
+            };
+        }
+
+        private CharacterInfoState GetCharacterInfo()
+        {
+            var character = CoreManager.Current.CharacterFilter;
+
+            return new CharacterInfoState
+            {
+                Level = character.Level,
+
+                TotalXP = character.TotalXP,
+
+                XPToNextLevel = character.XPToNextLevel,
+
+                UnassignedXP = character.UnassignedXP,
+
+                Vitae = character.Vitae,
+
+                Deaths = character.Deaths,
+
+                Burden = character.Burden,
+
+                BurdenUnits = character.BurdenUnits
+            };
+        }            
     }
 }
