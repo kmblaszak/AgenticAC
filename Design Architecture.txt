@@ -1,0 +1,34 @@
+                 Asheron's Call Client
+                         |
+                         |
+                    Decal Plugin
+              (CharacterTracker.dll)
+                         |
+                         |
+              Game State Export Layer
+        (JSON / local API / message queue)
+                         |
+                         |
+                  Agent Controller
+                         |
+        +----------------+----------------+
+        |                                 |
+        |                                 |
+   Perception Model                 Memory System
+   "What is happening?"             "What do we know?"
+        |                                 |
+        +----------------+----------------+
+                         |
+                         |
+                 Decision Engine
+              "What should I do?"
+                         |
+                         |
+                 Action Executor
+              "How do I do it?"
+                         |
+                         |
+                  Decal Commands
+                         |
+                         |
+                 Asheron's Call
