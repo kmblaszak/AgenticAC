@@ -1,8 +1,9 @@
 using System;
 using System.IO;
-using System.Timers;
 using Decal.Adapter;
 using Decal.Adapter.Wrappers;
+using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace CharacterTracker
 {
@@ -12,8 +13,23 @@ namespace CharacterTracker
         private readonly string logFile = @"C:\CharacterTracker_Test.txt";
         private readonly string jsonFile = @"C:\CharacterTracker.json";
 
-        private Timer trackerTimer;
+        private DateTime lastTrackerUpdate = DateTime.MinValue;
 
+        private readonly HashSet<CharFilterSkillType> unsupportedSkills =
+            new HashSet<CharFilterSkillType>
+            {
+                CharFilterSkillType.Gearcraft,
+                CharFilterSkillType.Axe,
+                CharFilterSkillType.Bow,
+                CharFilterSkillType.Crossbow,
+                CharFilterSkillType.Dagger,
+                CharFilterSkillType.Mace,
+                CharFilterSkillType.Spear,
+                CharFilterSkillType.Staff,
+                CharFilterSkillType.Sword,
+                CharFilterSkillType.ThrownWeapons,
+                CharFilterSkillType.Unarmed
+            };
 
         protected override void Startup()
         {
@@ -38,13 +54,7 @@ namespace CharacterTracker
                     CoreManager.Current.CharacterFilter.LoginComplete -= LoginComplete;
                 }
 
-
-                if (trackerTimer != null)
-                {
-                    trackerTimer.Stop();
-                    trackerTimer.Dispose();
-                    trackerTimer = null;
-                }
+                CoreManager.Current.RenderFrame -= RenderFrame;
             }
             catch (Exception ex)
             {
@@ -81,6 +91,7 @@ namespace CharacterTracker
                     "LoginComplete subscribed\r\n"
                 );
             }
+
         }
 
 
@@ -98,28 +109,29 @@ namespace CharacterTracker
                     5
                 );
 
-                if (trackerTimer != null)
-                {
-                    trackerTimer.Stop();
-                    trackerTimer.Dispose();
-                }
 
+                CoreManager.Current.RenderFrame += RenderFrame;
 
-                trackerTimer = new Timer(1000);
-                trackerTimer.Elapsed += TrackerTimer_Elapsed;
-                trackerTimer.AutoReset = true;
-                trackerTimer.Start();
+                File.AppendAllText(
+                    logFile,
+                    "RenderFrame subscribed\r\n"
+                );
 
 
                 File.AppendAllText(
                     logFile,
-                    "Tracker timer started\r\n"
+                    "Calling initial WriteCurrentPosition\r\n"
                 );
 
-                // Write immediately instead of waiting 1 second
+
+                // This runs on the Decal thread
                 WriteCurrentPosition();
 
 
+                File.AppendAllText(
+                    logFile,
+                    "Initial WriteCurrentPosition completed\r\n"
+                );
             }
             catch (Exception ex)
             {
@@ -133,23 +145,29 @@ namespace CharacterTracker
         }
 
 
-        private void TrackerTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private void RenderFrame(object sender, EventArgs e)
         {
             try
             {
+                if ((DateTime.Now - lastTrackerUpdate).TotalSeconds < 1)
+                {
+                    return;
+                }
+
+                lastTrackerUpdate = DateTime.Now;
+
                 WriteCurrentPosition();
             }
             catch (Exception ex)
             {
                 File.AppendAllText(
                     logFile,
-                    "Timer ERROR:\r\n" +
+                    "RenderFrame ERROR:\r\n" +
                     ex.ToString() +
                     "\r\n"
                 );
             }
         }
-
 
         private void WriteCurrentPosition()
         {
@@ -175,7 +193,7 @@ namespace CharacterTracker
             }
 
 
-            var coords = playerObject.Coordinates();
+           var coords = playerObject.Coordinates();
 
 
             if (coords == null)
@@ -188,39 +206,41 @@ namespace CharacterTracker
 
             CharacterInfoState info = GetCharacterInfo();
 
-            string json =
-                "{\r\n" +
-                "  \"CharacterId\": " + characterId + ",\r\n" +
-                "  \"Name\": \"" + characterName + "\",\r\n" +
-                "  \"Server\": \"" + server + "\",\r\n" +
-                "  \"NorthSouth\": " + coords.NorthSouth + ",\r\n" +
-                "  \"EastWest\": " + coords.EastWest + ",\r\n" +
-                "  \"Vitals\": {\r\n" +
-                "      \"HealthCurrent\": " + vitals.HealthCurrent + ",\r\n" +
-                "      \"HealthMaximum\": " + vitals.HealthMaximum + ",\r\n" +
-                "      \"HealthBase\": " + vitals.HealthBase + ",\r\n" +
-                "      \"HealthBonus\": " + vitals.HealthBonus + ",\r\n" +
-                "      \"ManaCurrent\": " + vitals.ManaCurrent + ",\r\n" +
-                "      \"ManaMaximum\": " + vitals.ManaMaximum + ",\r\n" +
-                "      \"ManaBase\": " + vitals.ManaBase + ",\r\n" +
-                "      \"ManaBonus\": " + vitals.ManaBonus + ",\r\n" +
-                "      \"StaminaCurrent\": " + vitals.StaminaCurrent + ",\r\n" +
-                "      \"StaminaMaximum\": " + vitals.StaminaMaximum + ",\r\n" +
-                "      \"StaminaBase\": " + vitals.StaminaBase + ",\r\n" +
-                "      \"StaminaBonus\": " + vitals.StaminaBonus + "\r\n" +
-                "  },\r\n" +
-                "  \"CharacterInfo\": {\r\n" +
-                "      \"Level\": " + info.Level + ",\r\n" +
-                "      \"TotalXP\": " + info.TotalXP + ",\r\n" +
-                "      \"XPToNextLevel\": " + info.XPToNextLevel + ",\r\n" +
-                "      \"UnassignedXP\": " + info.UnassignedXP + ",\r\n" +
-                "      \"Vitae\": " + info.Vitae + ",\r\n" +
-                "      \"Deaths\": " + info.Deaths + ",\r\n" +
-                "      \"Burden\": " + info.Burden + ",\r\n" +
-                "      \"BurdenUnits\": " + info.BurdenUnits + "\r\n" +
-                "  },\r\n" +
-                "  \"Timestamp\": \"" + DateTime.Now.ToString("o") + "\"\r\n" +
-                "}";
+            AttributeState attributes = GetAttributes();
+
+            SkillsState skills = GetSkills();
+
+
+            CharacterState state = new CharacterState
+            {
+               CharacterId = characterId,
+
+                Name = characterName,
+
+                Server = server,
+
+                Position = new PositionState
+               {
+                    NorthSouth = coords.NorthSouth,
+                    EastWest = coords.EastWest
+                },
+
+                Vitals = vitals,
+
+                CharacterInfo = info,
+
+                Attributes = attributes,
+
+                Skills = skills,
+
+                Timestamp = DateTime.Now.ToString("o")
+           };
+
+
+            string json = JsonConvert.SerializeObject(
+                state,
+                Formatting.Indented
+            );
 
 
             File.WriteAllText(
@@ -279,6 +299,157 @@ namespace CharacterTracker
 
                 BurdenUnits = character.BurdenUnits
             };
-        }            
+        }     
+
+        private AttributeState GetAttributes()
+        {
+            var character = CoreManager.Current.CharacterFilter;
+
+            var strength = character.Attributes[CharFilterAttributeType.Strength];
+            var endurance = character.Attributes[CharFilterAttributeType.Endurance];
+            var quickness = character.Attributes[CharFilterAttributeType.Quickness];
+            var coordination = character.Attributes[CharFilterAttributeType.Coordination];
+            var focus = character.Attributes[CharFilterAttributeType.Focus];
+            var self = character.Attributes[CharFilterAttributeType.Self];
+
+            return new AttributeState
+            {
+                Strength = new AttributeValue
+                {
+                    Base = strength.Base,
+                    Buffed = strength.Buffed,
+                    Creation = strength.Creation,
+                    XP = strength.Exp
+                },
+
+                Endurance = new AttributeValue
+                {
+                    Base = endurance.Base,
+                    Buffed = endurance.Buffed,
+                    Creation = endurance.Creation,
+                    XP = endurance.Exp
+                },
+
+                Quickness = new AttributeValue
+                {
+                    Base = quickness.Base,
+                    Buffed = quickness.Buffed,
+                    Creation = quickness.Creation,
+                    XP = quickness.Exp
+                },
+
+                Coordination = new AttributeValue
+                {
+                    Base = coordination.Base,
+                    Buffed = coordination.Buffed,
+                    Creation = coordination.Creation,
+                    XP = coordination.Exp
+                },
+
+                Focus = new AttributeValue
+                {
+                   Base = focus.Base,
+                    Buffed = focus.Buffed,
+                    Creation = focus.Creation,
+                    XP = focus.Exp
+                },
+
+                Self = new AttributeValue
+                {
+                    Base = self.Base,
+                    Buffed = self.Buffed,
+                    Creation = self.Creation,
+                    XP = self.Exp
+                }
+            };
+        }
+
+        private SkillsState GetSkills()
+        {
+            SkillsState skillsState = new SkillsState();
+
+            var character = CoreManager.Current.CharacterFilter;
+
+
+            File.AppendAllText(
+                logFile,
+                "Skill count test starting\r\n"
+            );
+
+
+            foreach (CharFilterSkillType skillType in Enum.GetValues(typeof(CharFilterSkillType)))
+            {
+                if (unsupportedSkills.Contains(skillType))
+                {
+                    continue;
+                }
+
+                try
+                {
+                   var skill = character.Skills[skillType];
+
+
+                    if (skill == null)
+                    {
+                        continue;
+                    }
+
+
+                    SkillState skillState = new SkillState
+                    {
+                        Type = (SkillType)skillType,
+                        Name = skill.Name,
+                        ShortName = skill.ShortName,
+                        Known = skill.Known,
+                        Formula = skill.Formula,
+
+                        Training = ConvertTraining(skill.Training),
+
+                        Value = new SkillValue
+                        {
+                            Base = skill.Base,
+                            Bonus = skill.Bonus,
+                            Buffed = skill.Buffed,
+                            Current = skill.Current,
+                            Experience = skill.XP,
+                            Increment = skill.Increment
+                        }
+                    };
+
+
+                    skillsState.Skills[(SkillType)skillType] = skillState;
+                }
+                catch (Exception ex)
+                {
+                    File.AppendAllText(
+                        logFile,
+                        "Skill ERROR " + skillType + ":\r\n" +
+                        ex.ToString() +
+                        "\r\n"
+                    );
+                }
+            }
+
+
+            return skillsState;
+        }
+
+        private TrainingState ConvertTraining(TrainingType training)
+        {
+            switch (training)
+            {
+                case TrainingType.Untrained:
+                    return TrainingState.Untrained;
+
+                case TrainingType.Trained:
+                    return TrainingState.Trained;
+
+                case TrainingType.Specialized:
+                    return TrainingState.Specialized;
+
+                default:
+                    return TrainingState.Unusable;
+            }
+        }        
     }
 }

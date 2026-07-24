@@ -2,10 +2,8 @@ namespace CharacterTracker
 {
     public class PositionState
     {
-        public float X { get; set; }
+        public double NorthSouth { get; set; }
 
-        public float Y { get; set; }
-
-        public float Z { get; set; }
+        public double EastWest { get; set; }
     }
 }

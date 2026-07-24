@@ -16,3 +16,5 @@ C:\Agentic AC\Decal Plugin - Game State Export Layer\obj\x86\Release\CharacterTr
 C:\Agentic AC\Decal Plugin - Game State Export Layer\obj\x86\Release\Characte.38493FB9.Up2Date
 C:\Agentic AC\Decal Plugin - Game State Export Layer\obj\x86\Release\CharacterTracker.dll
 C:\Agentic AC\Decal Plugin - Game State Export Layer\obj\x86\Release\CharacterTracker.pdb
+C:\Agentic AC\Decal Plugin - Game State Export Layer\bin\x86\Release\Newtonsoft.Json.dll
+C:\Agentic AC\Decal Plugin - Game State Export Layer\bin\x86\Release\Newtonsoft.Json.xml
