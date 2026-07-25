@@ -26,9 +26,8 @@ namespace CharacterTracker
                 CharFilterSkillType.Mace,
                 CharFilterSkillType.Spear,
                 CharFilterSkillType.Staff,
-                CharFilterSkillType.Sword,
                 CharFilterSkillType.ThrownWeapons,
-                CharFilterSkillType.Unarmed
+                CharFilterSkillType.Sword
             };
 
         protected override void Startup()
@@ -37,7 +36,7 @@ namespace CharacterTracker
                 logFile,
                 "\r\n============================\r\n" +
                 "Startup fired: " + DateTime.Now + "\r\n"
-            );
+            );          
 
             CoreManager.Current.FilterInitComplete += FilterInitComplete;
         }
@@ -109,6 +108,95 @@ namespace CharacterTracker
                     5
                 );
 
+        try
+        {
+            int unarmed = CoreManager.Current.CharacterFilter
+                .EffectiveSkill[CharFilterSkillType.Unarmed];
+
+            CoreManager.Current.Actions.AddChatText(
+                $"Unarmed SUCCESS: {unarmed}",
+                5);
+        }
+        catch (Exception ex)
+        {
+            CoreManager.Current.Actions.AddChatText(
+                $"Unarmed FAILED: {ex.Message}",
+                5);
+        }
+
+        // TEST: Dump all available skills and verify Unarmed support
+        File.AppendAllText(
+            logFile,
+            "Starting skill enumeration\r\n"
+        );
+
+        try
+        {
+            foreach (CharFilterSkillType skill in Enum.GetValues(typeof(CharFilterSkillType)))
+            {
+                try
+                {
+                    int value = CoreManager.Current.CharacterFilter.EffectiveSkill[skill];
+
+                    File.AppendAllText(
+                        logFile,
+                        $"{skill}: {value}\r\n"
+                    );
+
+                    CoreManager.Current.Actions.AddChatText(
+                        $"{skill}: {value}",
+                        5
+                    );
+                }
+                catch (Exception skillEx)
+                {
+                    File.AppendAllText(
+                        logFile,
+                        $"{skill}: FAILED - {skillEx.Message}\r\n"
+                    );
+                }
+            }
+        }
+        catch (Exception skillEnumEx)
+        {
+            File.AppendAllText(
+                logFile,
+                "Skill enumeration ERROR:\r\n" +
+                skillEnumEx.ToString() +
+                "\r\n"
+            );
+        }
+        // TEST: Dump all available skills and verify enum values
+        File.AppendAllText(
+            logFile,
+            "Starting skill enumeration\r\n"
+        );
+
+        try
+        {
+            foreach (CharFilterSkillType skill in Enum.GetValues(typeof(CharFilterSkillType)))
+            {
+                File.AppendAllText(
+                    logFile,
+                    $"{(int)skill}: {skill}\r\n"
+                );
+
+                CoreManager.Current.Actions.AddChatText(
+                    $"{(int)skill}: {skill}",
+                    5
+                );
+            }
+        }
+        catch (Exception skillEnumEx)
+        {
+            File.AppendAllText(
+                logFile,
+                "Skill enumeration ERROR:\r\n" +
+                skillEnumEx.ToString() +
+                "\r\n"
+            );
+        }
+
 
                 CoreManager.Current.RenderFrame += RenderFrame;
 
@@ -124,7 +212,7 @@ namespace CharacterTracker
                 );
 
 
-                // This runs on the Decal thread
+               // This runs on the Decal thread
                 WriteCurrentPosition();
 
 
@@ -373,6 +461,30 @@ namespace CharacterTracker
 
             File.AppendAllText(
                 logFile,
+                "=== Effective Skill Unarmed Test ===\r\n"
+            );
+
+            try
+            {
+                int unarmed = character.EffectiveSkill[CharFilterSkillType.Unarmed];
+
+                File.AppendAllText(
+                    logFile,
+                    "Effective Unarmed value: " + unarmed + "\r\n"
+                );
+            }
+            catch (Exception ex)
+            {
+                File.AppendAllText(
+                    logFile,
+                    "Effective Unarmed ERROR:\r\n" +
+                    ex.ToString() +
+                    "\r\n"
+                );
+            }
+
+            File.AppendAllText(
+               logFile,
                 "Skill count test starting\r\n"
             );
 
@@ -386,7 +498,25 @@ namespace CharacterTracker
 
                 try
                 {
-                   var skill = character.Skills[skillType];
+                    if (skillType == CharFilterSkillType.Unarmed)
+                    {
+                        File.AppendAllText(
+                            logFile,
+                            "Attempting to read Unarmed\r\n"
+                        );
+                    }
+
+
+                    var skill = character.Skills[skillType];
+
+
+                    if (skillType == CharFilterSkillType.Unarmed)
+                    {
+                        File.AppendAllText(
+                            logFile,
+                            "Unarmed returned: " + (skill == null ? "NULL" : skill.ToString()) + "\r\n"
+                        );
+                    }
 
 
                     if (skill == null)
@@ -405,7 +535,7 @@ namespace CharacterTracker
 
                         Training = ConvertTraining(skill.Training),
 
-                        Value = new SkillValue
+                       Value = new SkillValue
                         {
                             Base = skill.Base,
                             Bonus = skill.Bonus,
