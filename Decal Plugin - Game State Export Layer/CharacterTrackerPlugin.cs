@@ -4,6 +4,10 @@ using Decal.Adapter;
 using Decal.Adapter.Wrappers;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using CharacterTracker.Extractors;
+using CharacterTracker.PacketTrackers;
+using CharacterTracker.Maps;
+using CharacterTracker.Calculators;
 
 namespace CharacterTracker
 {
@@ -14,6 +18,10 @@ namespace CharacterTracker
         private readonly string jsonFile = @"C:\CharacterTracker.json";
 
         private DateTime lastTrackerUpdate = DateTime.MinValue;
+        private SkillExtractor skillExtractor;
+        private PacketSkillTracker packetSkillTracker;
+        private SkillPacketListener skillPacketListener;
+        private AttributeState attributeState;
 
         private readonly HashSet<CharFilterSkillType> unsupportedSkills =
             new HashSet<CharFilterSkillType>
@@ -27,11 +35,27 @@ namespace CharacterTracker
                 CharFilterSkillType.Spear,
                 CharFilterSkillType.Staff,
                 CharFilterSkillType.ThrownWeapons,
+                CharFilterSkillType.Unarmed,
                 CharFilterSkillType.Sword
             };
 
         protected override void Startup()
         {
+            skillExtractor = new SkillExtractor(logFile);
+            /*
+            messageLogger = new MessageLogger(logFile);
+            messageLogger.Start();
+            */
+            packetSkillTracker = new PacketSkillTracker();
+
+            skillPacketListener =
+                new SkillPacketListener(
+                    logFile,
+                    packetSkillTracker,
+                    () => GetAttributes());
+
+            skillPacketListener.Start();
+
             File.AppendAllText(
                 logFile,
                 "\r\n============================\r\n" +
@@ -54,6 +78,11 @@ namespace CharacterTracker
                 }
 
                 CoreManager.Current.RenderFrame -= RenderFrame;
+                /*
+                messageLogger?.Stop();
+                */
+
+                skillPacketListener?.Stop();
             }
             catch (Exception ex)
             {
@@ -103,102 +132,16 @@ namespace CharacterTracker
                     "LOGIN COMPLETE FIRED\r\n"
                 );
 
+
                 CoreManager.Current.Actions.AddChatText(
                     "[CharacterTrackerPlugin] Loaded",
                     5
                 );
 
-        try
-        {
-            int unarmed = CoreManager.Current.CharacterFilter
-                .EffectiveSkill[CharFilterSkillType.Unarmed];
-
-            CoreManager.Current.Actions.AddChatText(
-                $"Unarmed SUCCESS: {unarmed}",
-                5);
-        }
-        catch (Exception ex)
-        {
-            CoreManager.Current.Actions.AddChatText(
-                $"Unarmed FAILED: {ex.Message}",
-                5);
-        }
-
-        // TEST: Dump all available skills and verify Unarmed support
-        File.AppendAllText(
-            logFile,
-            "Starting skill enumeration\r\n"
-        );
-
-        try
-        {
-            foreach (CharFilterSkillType skill in Enum.GetValues(typeof(CharFilterSkillType)))
-            {
-                try
-                {
-                    int value = CoreManager.Current.CharacterFilter.EffectiveSkill[skill];
-
-                    File.AppendAllText(
-                        logFile,
-                        $"{skill}: {value}\r\n"
-                    );
-
-                    CoreManager.Current.Actions.AddChatText(
-                        $"{skill}: {value}",
-                        5
-                    );
-                }
-                catch (Exception skillEx)
-                {
-                    File.AppendAllText(
-                        logFile,
-                        $"{skill}: FAILED - {skillEx.Message}\r\n"
-                    );
-                }
-            }
-        }
-        catch (Exception skillEnumEx)
-        {
-            File.AppendAllText(
-                logFile,
-                "Skill enumeration ERROR:\r\n" +
-                skillEnumEx.ToString() +
-                "\r\n"
-            );
-        }
-        // TEST: Dump all available skills and verify enum values
-        File.AppendAllText(
-            logFile,
-            "Starting skill enumeration\r\n"
-        );
-
-        try
-        {
-            foreach (CharFilterSkillType skill in Enum.GetValues(typeof(CharFilterSkillType)))
-            {
-                File.AppendAllText(
-                    logFile,
-                    $"{(int)skill}: {skill}\r\n"
-                );
-
-                CoreManager.Current.Actions.AddChatText(
-                    $"{(int)skill}: {skill}",
-                    5
-                );
-            }
-        }
-        catch (Exception skillEnumEx)
-        {
-            File.AppendAllText(
-                logFile,
-                "Skill enumeration ERROR:\r\n" +
-                skillEnumEx.ToString() +
-                "\r\n"
-            );
-        }
-
+                attributeState = GetAttributes();
 
                 CoreManager.Current.RenderFrame += RenderFrame;
+                
 
                 File.AppendAllText(
                     logFile,
@@ -212,7 +155,6 @@ namespace CharacterTracker
                 );
 
 
-               // This runs on the Decal thread
                 WriteCurrentPosition();
 
 
@@ -296,7 +238,7 @@ namespace CharacterTracker
 
             AttributeState attributes = GetAttributes();
 
-            SkillsState skills = GetSkills();
+            SkillsState skills = GetPacketSkills();
 
 
             CharacterState state = new CharacterState
@@ -452,117 +394,67 @@ namespace CharacterTracker
             };
         }
 
-        private SkillsState GetSkills()
+
+        private SkillsState GetPacketSkills()
         {
             SkillsState skillsState = new SkillsState();
 
-            var character = CoreManager.Current.CharacterFilter;
-
-
-            File.AppendAllText(
-                logFile,
-                "=== Effective Skill Unarmed Test ===\r\n"
-            );
-
-            try
+            foreach (PacketSkill packetSkill in packetSkillTracker.Skills.Values)
             {
-                int unarmed = character.EffectiveSkill[CharFilterSkillType.Unarmed];
+                AttributeState currentAttributes = GetAttributes();
 
-                File.AppendAllText(
-                    logFile,
-                    "Effective Unarmed value: " + unarmed + "\r\n"
-                );
-            }
-            catch (Exception ex)
-            {
-                File.AppendAllText(
-                    logFile,
-                    "Effective Unarmed ERROR:\r\n" +
-                    ex.ToString() +
-                    "\r\n"
-                );
-            }
-
-            File.AppendAllText(
-               logFile,
-                "Skill count test starting\r\n"
-            );
+                double attributeValue =
+                    SkillFormulaEvaluator.CalculateAttributeValue(
+                        packetSkill.SkillId,
+                        currentAttributes);
 
 
-            foreach (CharFilterSkillType skillType in Enum.GetValues(typeof(CharFilterSkillType)))
-            {
-                if (unsupportedSkills.Contains(skillType))
+                int baseValue =
+                    (int)Math.Round(
+                        packetSkill.Raised +
+                        attributeValue +
+                        packetSkill.Bonus);
+
+
+                SkillState skillState = new SkillState
                 {
-                    continue;
-                }
+                    Type = (SkillType)packetSkill.SkillId,
 
-                try
-                {
-                    if (skillType == CharFilterSkillType.Unarmed)
+                    Name = SkillNameMap.GetName(packetSkill.SkillId),
+
+                    ShortName = SkillNameMap.GetName(packetSkill.SkillId),
+
+                    Known = true,
+
+                    Formula = SkillFormulaMap.GetFormula(packetSkill.SkillId),
+
+                    Training = (TrainingState)packetSkill.State,
+
+                    Value = new SkillValue
                     {
-                        File.AppendAllText(
-                            logFile,
-                            "Attempting to read Unarmed\r\n"
-                        );
+                        Base = baseValue,
+
+                        Bonus = packetSkill.Bonus,
+
+                        Buffed = baseValue,
+
+                        Current = baseValue,
+
+                        Experience = packetSkill.XP,
+
+                        Increment = packetSkill.Raised,
+
+                        Diff = packetSkill.Diff
                     }
+                };
 
 
-                    var skill = character.Skills[skillType];
-
-
-                    if (skillType == CharFilterSkillType.Unarmed)
-                    {
-                        File.AppendAllText(
-                            logFile,
-                            "Unarmed returned: " + (skill == null ? "NULL" : skill.ToString()) + "\r\n"
-                        );
-                    }
-
-
-                    if (skill == null)
-                    {
-                        continue;
-                    }
-
-
-                    SkillState skillState = new SkillState
-                    {
-                        Type = (SkillType)skillType,
-                        Name = skill.Name,
-                        ShortName = skill.ShortName,
-                        Known = skill.Known,
-                        Formula = skill.Formula,
-
-                        Training = ConvertTraining(skill.Training),
-
-                       Value = new SkillValue
-                        {
-                            Base = skill.Base,
-                            Bonus = skill.Bonus,
-                            Buffed = skill.Buffed,
-                            Current = skill.Current,
-                            Experience = skill.XP,
-                            Increment = skill.Increment
-                        }
-                    };
-
-
-                    skillsState.Skills[(SkillType)skillType] = skillState;
-                }
-                catch (Exception ex)
-                {
-                    File.AppendAllText(
-                        logFile,
-                        "Skill ERROR " + skillType + ":\r\n" +
-                        ex.ToString() +
-                        "\r\n"
-                    );
-                }
+                skillsState.Skills[(SkillType)packetSkill.SkillId] = skillState;
             }
 
 
             return skillsState;
-        }
+        }      
 
         private TrainingState ConvertTraining(TrainingType training)
         {

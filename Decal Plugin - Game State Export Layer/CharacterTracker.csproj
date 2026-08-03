@@ -64,9 +64,18 @@
   <ItemGroup>
     <Compile Include="AttributeState.cs" />
     <Compile Include="AttributeValue.cs" />
+    <Compile Include="Calculators\SkillFormulaEvaluator.cs" />
+    <Compile Include="Calculators\SkillValueCalculator.cs" />
     <Compile Include="CharacterInfoState.cs" />
     <Compile Include="CharacterTrackerPlugin.cs" />
     <Compile Include="CharacterState.cs" />
+    <Compile Include="Diagnostics\Messagelogger.cs" />
+    <Compile Include="Extractors\SkillExtractor.cs" />
+    <Compile Include="Maps\SkillFormulaMap.cs" />
+    <Compile Include="Maps\SkillNameMap.cs" />
+    <Compile Include="Maps\SkillStateMap.cs" />
+    <Compile Include="PacketListeners\SkillPacketListener.cs" />
+    <Compile Include="PacketTrackers\PacketSkillTracker.cs" />
     <Compile Include="PositionState.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SkillsState.cs" />
@@ -78,6 +87,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Decal.dll" />
+    <Content Include="Decal.Interop.Filters.DLL" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

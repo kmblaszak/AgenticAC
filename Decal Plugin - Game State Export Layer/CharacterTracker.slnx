@@ -3,7 +3,7 @@
     <Platform Name="Any CPU" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="CharacterTracker.csproj">
+  <Project Path="CharacterTracker.csproj" Id="7f2a4a7b-6b4d-4a31-9e4c-3f5a1d8e92b6">
     <Platform Solution="*|x86" Project="x86" />
   </Project>
 </Solution>
