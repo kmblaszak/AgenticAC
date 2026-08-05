@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace CharacterTracker
 {
     public class CharacterState
@@ -17,6 +19,10 @@ namespace CharacterTracker
         public AttributeState Attributes { get; set; }
 
         public SkillsState Skills { get; set; } = new SkillsState();
+
+        public EnchantmentsState Enchantments { get; set; }
+
+        public List<ActiveEnchantmentState> ActiveEnchantments { get; set; }
 
         public string Timestamp { get; set; }
     }

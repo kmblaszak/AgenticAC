@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace CharacterTracker.PacketTrackers
+namespace CharacterTracker.Maps
 {
     public static class SkillNameMap
     {

@@ -8,6 +8,8 @@ namespace CharacterTracker
 
         public int Buffed { get; set; }
 
+        public int EnchantmentBonus { get; set; }
+
         public int Current { get; set; }
 
         public int Experience { get; set; }

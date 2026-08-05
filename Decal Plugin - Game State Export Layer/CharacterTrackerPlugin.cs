@@ -10,6 +10,7 @@ using CharacterTracker.Maps;
 using CharacterTracker.Calculators;
 using CharacterTracker.GameData;
 using Decal.Interop.SpellFilter;
+using Newtonsoft.Json.Linq;
 
 namespace CharacterTracker
 {
@@ -44,10 +45,7 @@ namespace CharacterTracker
         protected override void Startup()
         {
             skillExtractor = new SkillExtractor(logFile);
-            /*
-            messageLogger = new MessageLogger(logFile);
-            messageLogger.Start();
-            */
+
             packetSkillTracker = new PacketSkillTracker();
 
             skillPacketListener =
@@ -58,11 +56,37 @@ namespace CharacterTracker
 
             skillPacketListener.Start();
 
+
             File.AppendAllText(
                 logFile,
                 "\r\n============================\r\n" +
                 "Startup fired: " + DateTime.Now + "\r\n"
-            );          
+            );
+
+
+            // Load spell database
+            try
+            {
+                int spellCount = SpellNameMap.Load(
+                    @"C:\Agentic AC\Decal Plugin - Game State Export Layer\GameData\spells.json"
+                );
+
+                File.AppendAllText(
+                    logFile,
+                    "Spell database loaded successfully\r\n" +
+                    $"Loaded spell count: {spellCount}\r\n"
+                );
+            }
+            catch (Exception ex)
+            {
+                File.AppendAllText(
+                    logFile,
+                    "Spell database load failed:\r\n" +
+                    ex +
+                    "\r\n"
+                );
+            }
+
 
             CoreManager.Current.FilterInitComplete += FilterInitComplete;
         }
@@ -135,17 +159,6 @@ namespace CharacterTracker
                 );
 
                 DumpEnchantments();
-
-                TestSpellLookup();
-
-                DumpCoreManager();
-
-                TestCoreManager();
-
-                TestSpellFilter();
-
-                DumpServices();
-
 
                 CoreManager.Current.Actions.AddChatText(
                     "[CharacterTrackerPlugin] Loaded",
@@ -256,6 +269,9 @@ namespace CharacterTracker
 
             SkillsState skills = GetPacketSkills();
 
+            List<ActiveEnchantmentState> activeEnchantments =
+                GetActiveEnchantments();
+
 
             CharacterState state = new CharacterState
             {
@@ -278,6 +294,8 @@ namespace CharacterTracker
                 Attributes = attributes,
 
                 Skills = skills,
+
+                ActiveEnchantments = activeEnchantments,
 
                 Timestamp = DateTime.Now.ToString("o")
            };
@@ -432,6 +450,15 @@ namespace CharacterTracker
                         packetSkill.Bonus);
 
 
+                int enchantmentBonus =
+                    GetSkillEnchantmentBonus(
+                        packetSkill.SkillId);
+
+
+                int buffedValue =
+                    baseValue + enchantmentBonus;
+
+
                 bool specialized =
                     packetSkill.State == 3;
 
@@ -468,9 +495,11 @@ namespace CharacterTracker
 
                         Bonus = packetSkill.Bonus,
 
-                        Buffed = baseValue,
+                        Buffed = buffedValue,
 
-                        Current = baseValue,
+                        EnchantmentBonus = enchantmentBonus,
+
+                        Current = buffedValue,
 
                         Experience = packetSkill.XP,
 
@@ -492,6 +521,79 @@ namespace CharacterTracker
             return skillsState;
         } 
 
+        private int GetSkillEnchantmentBonus(int skillId)
+        {
+            int bonus = 0;
+
+            foreach (EnchantmentWrapper enchant in CoreManager.Current.CharacterFilter.Enchantments)
+            {
+                if (enchant.Affected == skillId)
+                {
+                    bonus += (int)Math.Round(enchant.Adjustment);
+                }
+            }
+
+            return bonus;
+        }        
+
+        private List<ActiveEnchantmentState> GetActiveEnchantments()
+        {
+            List<ActiveEnchantmentState> enchantments =
+                new List<ActiveEnchantmentState>();
+
+
+            foreach (EnchantmentWrapper enchant in 
+                CoreManager.Current.CharacterFilter.Enchantments)
+            {
+                string spellName = "Unknown";
+
+                if (SpellNameMap.TryGetSpellName(
+                    enchant.SpellId,
+                    out string name))
+                {
+                    spellName = name;
+                }
+
+
+                string affectedName = "Unknown";
+
+                if (SkillNameMap.TryGetSkillName(
+                    enchant.Affected,
+                    out string skillName))
+                {
+                    affectedName = skillName;
+                }
+
+
+        enchantments.Add(
+            new ActiveEnchantmentState
+            {
+                SpellId = enchant.SpellId,
+
+                SpellName = spellName,
+
+                Adjustment = enchant.Adjustment,
+
+                Affected = enchant.Affected,
+
+                AffectedName = affectedName,
+
+                AffectedMask = enchant.AffectedMask,
+
+                Duration = enchant.Duration,
+
+                Remaining = enchant.TimeRemaining,
+
+                Family = enchant.Family,
+
+                Layer = enchant.Layer
+            });
+            }
+
+
+            return enchantments;
+        }        
+
         private void DumpEnchantments()
         {
             File.AppendAllText(
@@ -512,19 +614,12 @@ namespace CharacterTracker
 
                 string spellName = "Unknown";
 
-                try
+                if (SpellNameMap.TryGetSpellName(
+                        enchant.SpellId,
+                        out string name))
                 {
-                    Spell spell = spells.get_SpellByID(enchant.SpellId);
-
-                    if (spell != null)
-                    {
-                        spellName = spell.Name;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    spellName = "Lookup Error: " + ex.Message;
-                }
+                    spellName = name;
+                }               
 
 
                 File.AppendAllText(
@@ -542,204 +637,6 @@ namespace CharacterTracker
                     "----------------------------\r\n");
             }
         }
-
-        private void TestSpellLookup()
-        {
-            File.AppendAllText(
-                logFile,
-                "\r\n===== SPELL LOOKUP TEST =====\r\n");
-
-            try
-            {
-                Type spellsType = Type.GetTypeFromCLSID(
-                    new Guid("C2D43735-BE7E-4829-AF73-F2E7E820EB16"));
-
-                if (spellsType == null)
-                {
-                    File.AppendAllText(
-                        logFile,
-                        "Could not find SpellsClass COM type\r\n");
-                    return;
-                }
-
-                object obj = Activator.CreateInstance(spellsType);
-
-                ISpells spells = (ISpells)obj;
-
-                Spell spell = spells.get_SpellByID(2240);
-
-                if (spell != null)
-                {
-                    File.AppendAllText(
-                        logFile,
-                        $"Spell ID: {spell.SpellID}\r\n" +
-                        $"Name: {spell.Name}\r\n" +
-                        $"Description: {spell.Description}\r\n");
-                }
-                else
-                {
-                    File.AppendAllText(
-                        logFile,
-                        "Spell lookup returned null\r\n");
-                }
-            }
-            catch(Exception ex)
-            {
-                File.AppendAllText(
-                    logFile,
-                    "SPELL LOOKUP ERROR:\r\n" +
-                    ex +
-                    "\r\n");
-            }
-        }
-
-        private void DumpCoreManager()
-        {
-            File.AppendAllText(
-                logFile,
-                "\r\n===== CORE MANAGER MEMBERS =====\r\n");
-
-            var core = CoreManager.Current;
-
-            foreach (var prop in core.GetType().GetProperties())
-            {
-                File.AppendAllText(
-                    logFile,
-                    $"PROPERTY: {prop.Name} ({prop.PropertyType.FullName})\r\n");
-            }
-
-            foreach (var method in core.GetType().GetMethods())
-            {
-                string parameters = "";
-
-                foreach (var p in method.GetParameters())
-                {
-                    parameters += 
-                        $"{p.ParameterType.Name} {p.Name}, ";
-                }
-
-                File.AppendAllText(
-                    logFile,
-                    $"METHOD: {method.Name}({parameters}) RETURNS {method.ReturnType.FullName}\r\n");
-            }
-        }
-
-        private void TestCoreManager()
-        {
-            File.AppendAllText(
-                logFile,
-                "CoreManager test\r\n");
-
-            var test = CoreManager.Current;
-
-            File.AppendAllText(
-                logFile,
-                "CoreManager exists\r\n");
-
-            var characterFilter = test.CharacterFilter;
-
-            File.AppendAllText(
-                logFile,
-                "CharacterFilter exists\r\n");
-
-            var enchantments = characterFilter.Enchantments;
-
-            File.AppendAllText(
-                logFile,
-                "Enchantments collection exists\r\n");
-
-            foreach (EnchantmentWrapper enchant in enchantments)
-            {
-                File.AppendAllText(
-                    logFile,
-                    $"SpellId: {enchant.SpellId} | " +
-                    $"Affected: {enchant.Affected} | " +
-                    $"Adjustment: {enchant.Adjustment}\r\n");
-            }
-
-            File.AppendAllText(
-                logFile,
-                "CoreManager test complete\r\n");
-        }
-
-        private void TestSpellFilter()
-        {
-            File.AppendAllText(
-                logFile,
-                "\r\n===== SPELL FILTER TEST =====\r\n");
-
-            try
-            {
-                FilterBase filter =
-                    CoreManager.Current.Filter("SpellFilter");
-
-                if (filter == null)
-                {
-                    File.AppendAllText(
-                        logFile,
-                        "SpellFilter not found\r\n");
-
-                    return;
-                }
-
-                File.AppendAllText(
-                    logFile,
-                    $"Filter Type: {filter.GetType().FullName}\r\n");
-            }
-            catch(Exception ex)
-            {
-                File.AppendAllText(
-                    logFile,
-                    "SPELL FILTER ERROR:\r\n" +
-                    ex +
-                    "\r\n");
-            }
-        }
-
-        private void DumpServices()
-        {
-            File.AppendAllText(
-                logFile,
-                "\r\n===== SERVICE TEST =====\r\n");
-
-            string[] names =
-            {
-                "SpellFilter",
-                "Spell",
-                "Spells",
-                "SpellService",
-                "SpellFilter.Spells"
-            };
-
-            foreach (string name in names)
-            {
-                try
-                {
-                    var service = CoreManager.Current.Service(name);
-
-                    if (service != null)
-                    {
-                        File.AppendAllText(
-                            logFile,
-                            $"FOUND SERVICE: {name}\r\n" +
-                            $"TYPE: {service.GetType().FullName}\r\n");
-                    }
-                    else
-                    {
-                        File.AppendAllText(
-                            logFile,
-                            $"NULL SERVICE: {name}\r\n");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    File.AppendAllText(
-                        logFile,
-                        $"ERROR {name}: {ex.Message}\r\n");
-                }
-            }
-        }
-
 
         private TrainingState ConvertTraining(TrainingType training)
         {

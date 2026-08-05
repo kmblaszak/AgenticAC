@@ -67,6 +67,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ActiveEnchantmentState.cs" />
     <Compile Include="AttributeState.cs" />
     <Compile Include="AttributeValue.cs" />
     <Compile Include="Calculators\SkillFormulaEvaluator.cs" />
@@ -75,8 +76,11 @@
     <Compile Include="CharacterTrackerPlugin.cs" />
     <Compile Include="CharacterState.cs" />
     <Compile Include="Diagnostics\Messagelogger.cs" />
+    <Compile Include="EnchantmentsState.cs" />
+    <Compile Include="Extractors\EnchantmentExtractor.cs" />
     <Compile Include="Extractors\SkillExtractor.cs" />
     <Compile Include="GameData\SkillExperienceTable.cs" />
+    <Compile Include="GameData\SpellNameMap.cs" />
     <Compile Include="Maps\SkillFormulaMap.cs" />
     <Compile Include="Maps\SkillNameMap.cs" />
     <Compile Include="Maps\SkillStateMap.cs" />
@@ -92,6 +96,7 @@
     <Compile Include="VitalState.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="GameData\spells.json" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
