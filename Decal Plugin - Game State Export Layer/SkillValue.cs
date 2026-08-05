@@ -13,7 +13,11 @@ namespace CharacterTracker
         public int Experience { get; set; }
 
         public int Increment { get; set; }
-        
+
         public int Diff { get; set; }
+
+        public long ExperienceToNextSkillPoint { get; set; }
+
+        public double PercentToNextSkillPoint { get; set; }
     }
 }

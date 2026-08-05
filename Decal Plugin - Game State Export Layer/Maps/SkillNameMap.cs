@@ -70,6 +70,10 @@ namespace CharacterTracker.PacketTrackers
                 { 54, "Summoning" }
             };
 
+        public static bool TryGetSkillName(int id, out string name)
+        {
+            return Skills.TryGetValue(id, out name);
+        }
 
         public static string GetName(int skillId)
         {

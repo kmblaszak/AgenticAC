@@ -12,6 +12,7 @@ namespace CharacterTracker.PacketTrackers
         private readonly string logFile;
         private readonly PacketSkillTracker skillTracker;
         private readonly Func<AttributeState> getAttributes;
+        private bool _loggedMessageType = false;
 
 
         public SkillPacketListener(
@@ -27,7 +28,13 @@ namespace CharacterTracker.PacketTrackers
 
         public void Start()
         {
+            File.WriteAllText(
+                logFile,
+                "=== NEW SESSION ===\r\n");
+
+
             CoreManager.Current.MessageProcessed += OnMessageProcessed;
+
 
             File.AppendAllText(
                 logFile,
@@ -76,22 +83,49 @@ namespace CharacterTracker.PacketTrackers
                 }
 
 
-
-                File.AppendAllText(
-                    logFile,
-                    $"FOUND F7B0 | " +
-                    $"Time={DateTime.Now:HH:mm:ss.fff} | " +
-                    $"Fields={e.Message.Count} | " +
-                    $"Event={eventId}\r\n");
-
-
-
-                if (eventId != 19)
+                if (eventId != 19 &&
+                    eventId != 201 &&
+                    eventId != 448 &&
+                    eventId != 706)
                 {
+                    File.AppendAllText(
+                        logFile,
+                        $"IGNORED EVENT {eventId}\r\n");
+
                     return;
                 }
 
+                File.AppendAllText(
+                    logFile,
+                    $"PROCESSING EVENT {eventId}\r\n");
+                   
 
+                if (!_loggedMessageType)
+                {
+                    _loggedMessageType = true;
+
+                    File.AppendAllText(logFile,
+                        $"\r\n===== MESSAGE TYPE INFO =====\r\n");
+
+                    File.AppendAllText(logFile,
+                        $"Class: {e.Message.GetType().FullName}\r\n\r\n");
+
+                    foreach (var prop in e.Message.GetType().GetProperties())
+                    {
+                        File.AppendAllText(logFile,
+                            $"PROPERTY: {prop.Name} ({prop.PropertyType.Name})\r\n");
+                    }
+
+                    File.AppendAllText(logFile, "\r\n");
+
+                    foreach (var method in e.Message.GetType().GetMethods())
+                    {
+                        File.AppendAllText(logFile,
+                            $"METHOD: {method.Name}\r\n");
+                    }
+
+                    File.AppendAllText(logFile, "\r\n=============================\r\n\r\n");
+                }
 
                 StringBuilder output = new StringBuilder();
 
@@ -199,6 +233,16 @@ namespace CharacterTracker.PacketTrackers
                     output.AppendLine(
                         "NO VECTORS STRUCT FOUND");
 
+                    output.AppendLine();
+                    output.AppendLine("RAW MESSAGE STRUCTURE:");
+
+                    for (int i = 0; i < e.Message.Count; i++)
+                    {
+                        output.AppendLine(
+                            $"  {i}: {e.Message.Name(i)}");
+
+                    }
+
                     File.AppendAllText(
                         logFile,
                         output.ToString());
@@ -262,8 +306,8 @@ namespace CharacterTracker.PacketTrackers
                     int increment = 0;
                     int xp = 0;
                     int bonus = 0;
-                    int diff = 0;
                     int state = 0;
+                    int diff = 0;
 
 
 
@@ -329,20 +373,17 @@ namespace CharacterTracker.PacketTrackers
                                         break;
 
 
-                                    case "diff":
-
-                                        diff =
-                                            Convert.ToInt32(dataValue);
-
-                                        break;
-
-
                                     case "state":
 
                                         state =
                                             Convert.ToInt32(dataValue);
 
                                         break;
+
+                                    case "diff":
+                                        diff =
+                                            Convert.ToInt32(dataValue);
+                                        break;    
                                 }
                             }
                         }
@@ -355,6 +396,14 @@ namespace CharacterTracker.PacketTrackers
                         continue;
                     }
 
+                    string skillName =
+                        SkillNameMap.GetName(skillId);
+
+
+                    if (skillName.StartsWith("UnknownSkill"))
+                    {
+                        continue;
+                    }
 
 
                     found++;
@@ -366,10 +415,9 @@ namespace CharacterTracker.PacketTrackers
                             Raised = increment,
                             XP = xp,
                             Bonus = bonus,
-                            Diff = diff,
                             State = state
                         });
-
+                    /*
                     File.AppendAllText(
                         logFile,
                         $"TRACKER UPDATE | SkillId={skillId} | " +
@@ -378,9 +426,7 @@ namespace CharacterTracker.PacketTrackers
                         $"XP={xp} | " +
                         $"Bonus={bonus} | " +
                         $"State={state}\r\n");    
-
-                    string skillName =
-                        SkillNameMap.GetName(skillId);
+                    */
 
 
                     string stateName =
@@ -453,8 +499,9 @@ namespace CharacterTracker.PacketTrackers
                     output.AppendLine(
                         $"    Increment : {increment}");
 
-                   // output.AppendLine(
-                      //  $"    Diff       : {diff}");
+                    output.AppendLine(
+                        $"    Diff       : {diff}");    
+
                 }
 
 
@@ -474,7 +521,7 @@ namespace CharacterTracker.PacketTrackers
                 output.ToString());
 
 
-            skillTracker.DumpSkills(logFile);
+            //skillTracker.DumpSkills(logFile);
             }
             catch(Exception ex)
             {
